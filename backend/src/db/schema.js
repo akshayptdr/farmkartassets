@@ -107,6 +107,10 @@ function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_history_created ON asset_history(created_at);
   `);
 
+  // Add Google Drive columns if they don't exist (safe migration)
+  try { db.exec(`ALTER TABLE asset_files ADD COLUMN drive_file_id TEXT`); } catch {}
+  try { db.exec(`ALTER TABLE asset_files ADD COLUMN web_view_link TEXT`); } catch {}
+
   console.log('✅ Database initialized successfully');
 }
 

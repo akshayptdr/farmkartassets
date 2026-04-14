@@ -2,7 +2,6 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 
 const { initializeDatabase } = require('./src/db/schema');
 
@@ -15,16 +14,6 @@ const reportRoutes = require('./src/routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Ensure upload directory exists
-const uploadDir = process.env.UPLOAD_DIR || './uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-['assets', 'bills', 'documents'].forEach(sub => {
-  const subDir = path.join(uploadDir, sub);
-  if (!fs.existsSync(subDir)) fs.mkdirSync(subDir, { recursive: true });
-});
 
 // Initialize database
 initializeDatabase();
@@ -42,9 +31,6 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Serve uploaded files
-app.use('/uploads', express.static(path.resolve(uploadDir)));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -70,6 +56,6 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Asset Management Server running on http://localhost:${PORT}`);
-  console.log(`📁 Uploads directory: ${path.resolve(uploadDir)}`);
-  console.log(`💾 Database: ${path.resolve(process.env.DB_PATH || './asset_management.db')}\n`);
+  console.log(`💾 Database: ${path.resolve(process.env.DB_PATH || './asset_management.db')}`);
+  console.log(`📁 File storage: Google Drive\n`);
 });

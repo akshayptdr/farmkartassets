@@ -1,10 +1,9 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const QRCode = require('qrcode');
 const { getDb } = require('../db/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
+const { uploadFileToDrive, deleteFileFromDrive } = require('../utils/googleDrive');
 
 const router = express.Router();
 
@@ -164,22 +163,20 @@ router.delete('/:id', authenticate, requireAdmin, (req, res) => {
     return res.status(400).json({ success: false, message: 'Cannot delete asset with active assignment. Return the asset first.' });
   }
 
-  // Delete associated files from disk
-  const files = db.prepare('SELECT file_path FROM asset_files WHERE asset_id = ?').all(req.params.id);
-  files.forEach(f => {
-    const fullPath = path.resolve(f.file_path);
-    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
-  });
+  // Delete associated files from Google Drive
+  const files = db.prepare('SELECT drive_file_id FROM asset_files WHERE asset_id = ?').all(req.params.id);
+  for (const f of files) {
+    if (f.drive_file_id) await deleteFileFromDrive(f.drive_file_id);
+  }
 
   db.prepare('DELETE FROM assets WHERE id = ?').run(req.params.id);
   res.json({ success: true, message: 'Asset deleted' });
 });
 
 // POST /api/assets/:id/files
-router.post('/:id/files', authenticate, requireAdmin, (req, res, next) => {
-  upload.single('file')(req, res, (err) => {
+router.post('/:id/files', authenticate, requireAdmin, (req, res) => {
+  upload.single('file')(req, res, async (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
-
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
     const db = getDb();
@@ -187,31 +184,47 @@ router.post('/:id/files', authenticate, requireAdmin, (req, res, next) => {
     if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
 
     const fileType = req.body.file_type || 'photo';
-    const relativePath = path.join('uploads', fileType + 's', req.file.filename).replace(/\\/g, '/');
 
-    const result = db.prepare(`
-      INSERT INTO asset_files (asset_id, file_type, file_path, original_name, mime_type, file_size, uploaded_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(asset.id, fileType, relativePath, req.file.originalname, req.file.mimetype, req.file.size, req.user.id);
+    try {
+      const driveFile = await uploadFileToDrive({
+        buffer: req.file.buffer,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileType,
+      });
 
-    logHistory(db, asset.id, 'image_added', `${fileType} file uploaded: ${req.file.originalname}`, req.user);
+      const result = db.prepare(`
+        INSERT INTO asset_files (asset_id, file_type, file_path, original_name, mime_type, file_size, uploaded_by, drive_file_id, web_view_link)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(asset.id, fileType, driveFile.web_view_link, req.file.originalname, req.file.mimetype, req.file.size, req.user.id, driveFile.drive_file_id, driveFile.web_view_link);
 
-    res.status(201).json({
-      success: true,
-      message: 'File uploaded',
-      file: { id: result.lastInsertRowid, file_path: relativePath, original_name: req.file.originalname, file_type: fileType }
-    });
+      logHistory(db, asset.id, 'image_added', `${fileType} file uploaded: ${req.file.originalname}`, req.user);
+
+      res.status(201).json({
+        success: true,
+        message: 'File uploaded to Google Drive',
+        file: {
+          id: result.lastInsertRowid,
+          file_path: driveFile.web_view_link,
+          web_view_link: driveFile.web_view_link,
+          original_name: req.file.originalname,
+          file_type: fileType,
+        }
+      });
+    } catch (uploadErr) {
+      console.error('Google Drive upload error:', uploadErr.message);
+      res.status(500).json({ success: false, message: 'Failed to upload file to Google Drive' });
+    }
   });
 });
 
 // DELETE /api/assets/:id/files/:fileId
-router.delete('/:id/files/:fileId', authenticate, requireAdmin, (req, res) => {
+router.delete('/:id/files/:fileId', authenticate, requireAdmin, async (req, res) => {
   const db = getDb();
   const file = db.prepare('SELECT * FROM asset_files WHERE id = ? AND asset_id = ?').get(req.params.fileId, req.params.id);
   if (!file) return res.status(404).json({ success: false, message: 'File not found' });
 
-  const fullPath = path.resolve(file.file_path);
-  if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+  if (file.drive_file_id) await deleteFileFromDrive(file.drive_file_id);
 
   db.prepare('DELETE FROM asset_files WHERE id = ?').run(file.id);
   logHistory(db, req.params.id, 'image_removed', `File removed: ${file.original_name}`, req.user);
