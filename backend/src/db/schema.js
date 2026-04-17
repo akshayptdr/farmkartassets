@@ -62,6 +62,8 @@ function initializeDatabase() {
       mime_type TEXT,
       file_size INTEGER,
       uploaded_by INTEGER REFERENCES users(id),
+      drive_file_id TEXT,
+      web_view_link TEXT,
       uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

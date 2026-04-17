@@ -109,6 +109,7 @@ export default function Assignments() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Asset</th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-600">Type</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Employee</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Department</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-600">Assigned</th>
@@ -119,9 +120,9 @@ export default function Assignments() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">Loading...</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">Loading...</td></tr>
               ) : assignments.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-12 text-gray-400">No assignments found</td></tr>
+                <tr><td colSpan={8} className="text-center py-12 text-gray-400">No assignments found</td></tr>
               ) : assignments.map(a => (
                 <tr key={a.id} className={`table-row ${isOverdue(a) ? 'bg-red-50' : ''}`}>
                   <td className="px-4 py-3">
@@ -129,6 +130,11 @@ export default function Assignments() {
                       {a.asset_code}
                     </Link>
                     <div className="text-xs text-gray-500">{a.brand} {a.model}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-block px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700 capitalize">
+                      {a.asset_type}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-gray-800">{a.employee_name}</div>

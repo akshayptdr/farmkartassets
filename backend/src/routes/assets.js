@@ -3,7 +3,6 @@ const QRCode = require('qrcode');
 const { getDb } = require('../db/database');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
-const { uploadFileToCloudinary, deleteFileFromCloudinary } = require('../utils/cloudinary');
 
 const router = express.Router();
 
@@ -163,19 +162,13 @@ router.delete('/:id', authenticate, requireAdmin, (req, res) => {
     return res.status(400).json({ success: false, message: 'Cannot delete asset with active assignment. Return the asset first.' });
   }
 
-  // Delete associated files from Cloudinary
-  const files = db.prepare('SELECT drive_file_id FROM asset_files WHERE asset_id = ?').all(req.params.id);
-  for (const f of files) {
-    if (f.drive_file_id) await deleteFileFromCloudinary(f.drive_file_id);
-  }
-
   db.prepare('DELETE FROM assets WHERE id = ?').run(req.params.id);
   res.json({ success: true, message: 'Asset deleted' });
 });
 
 // POST /api/assets/:id/files
 router.post('/:id/files', authenticate, requireAdmin, (req, res) => {
-  upload.single('file')(req, res, async (err) => {
+  upload.single('file')(req, res, (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
@@ -184,47 +177,33 @@ router.post('/:id/files', authenticate, requireAdmin, (req, res) => {
     if (!asset) return res.status(404).json({ success: false, message: 'Asset not found' });
 
     const fileType = req.body.file_type || 'photo';
+    const filePath = `uploads/${req.file.filename}`;
 
-    try {
-      const cloudFile = await uploadFileToCloudinary({
-        buffer: req.file.buffer,
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        fileType,
-      });
+    const result = db.prepare(`
+      INSERT INTO asset_files (asset_id, file_type, file_path, original_name, mime_type, file_size, uploaded_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(asset.id, fileType, filePath, req.file.originalname, req.file.mimetype, req.file.size, req.user.id);
 
-      const result = db.prepare(`
-        INSERT INTO asset_files (asset_id, file_type, file_path, original_name, mime_type, file_size, uploaded_by, drive_file_id, web_view_link)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(asset.id, fileType, cloudFile.web_view_link, req.file.originalname, req.file.mimetype, req.file.size, req.user.id, cloudFile.drive_file_id, cloudFile.web_view_link);
+    logHistory(db, asset.id, 'image_added', `${fileType} file uploaded: ${req.file.originalname}`, req.user);
 
-      logHistory(db, asset.id, 'image_added', `${fileType} file uploaded: ${req.file.originalname}`, req.user);
-
-      res.status(201).json({
-        success: true,
-        message: 'File uploaded to Cloudinary',
-        file: {
-          id: result.lastInsertRowid,
-          file_path: cloudFile.web_view_link,
-          web_view_link: cloudFile.web_view_link,
-          original_name: req.file.originalname,
-          file_type: fileType,
-        }
-      });
-    } catch (uploadErr) {
-      console.error('Cloudinary upload error:', uploadErr.message);
-      res.status(500).json({ success: false, message: 'Failed to upload file to Cloudinary' });
-    }
+    res.status(201).json({
+      success: true,
+      message: 'File uploaded successfully',
+      file: {
+        id: result.lastInsertRowid,
+        file_path: filePath,
+        original_name: req.file.originalname,
+        file_type: fileType,
+      }
+    });
   });
 });
 
 // DELETE /api/assets/:id/files/:fileId
-router.delete('/:id/files/:fileId', authenticate, requireAdmin, async (req, res) => {
+router.delete('/:id/files/:fileId', authenticate, requireAdmin, (req, res) => {
   const db = getDb();
   const file = db.prepare('SELECT * FROM asset_files WHERE id = ? AND asset_id = ?').get(req.params.fileId, req.params.id);
   if (!file) return res.status(404).json({ success: false, message: 'File not found' });
-
-  if (file.drive_file_id) await deleteFileFromCloudinary(file.drive_file_id);
 
   db.prepare('DELETE FROM asset_files WHERE id = ?').run(file.id);
   logHistory(db, req.params.id, 'image_removed', `File removed: ${file.original_name}`, req.user);

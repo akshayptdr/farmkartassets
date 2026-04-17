@@ -183,7 +183,7 @@ export default function AssetDetail() {
                     {group.files.map(f => (
                       <div key={f.id} className="relative group rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
                         {f.mime_type?.startsWith('image') ? (
-                          <img src={`/${f.file_path}`} alt={f.original_name}
+                          <img src={`${import.meta.env.VITE_API_URL || ''}/${f.file_path}`} alt={f.original_name}
                             className="w-full h-20 object-cover" />
                         ) : (
                           <div className="h-20 flex flex-col items-center justify-center gap-1">
@@ -192,7 +192,7 @@ export default function AssetDetail() {
                           </div>
                         )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <a href={`/${f.file_path}`} target="_blank" className="p-1 bg-white rounded text-blue-600 hover:text-blue-800">
+                          <a href={`${import.meta.env.VITE_API_URL || ''}/${f.file_path}`} target="_blank" className="p-1 bg-white rounded text-blue-600 hover:text-blue-800">
                             <Download size={12} />
                           </a>
                           {isAdmin && (
