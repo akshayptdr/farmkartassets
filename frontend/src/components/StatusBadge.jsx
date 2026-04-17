@@ -21,7 +21,7 @@ const TYPE_LABELS = {
   laptop: 'Laptop', desktop: 'Desktop', cpu: 'CPU',
   keyboard: 'Keyboard', mouse: 'Mouse', printer: 'Printer',
   mobile: 'Mobile', cctv: 'CCTV', router: 'Router',
-  sim: 'SIM', other: 'Other'
+  sim: 'SIM', barcode_scanner: 'Barcode Scanner', other: 'Other'
 };
 
 export function StatusBadge({ status }) {
@@ -45,7 +45,7 @@ export function AssetTypeIcon({ type }) {
     laptop: '💻', desktop: '🖥️', cpu: '🔲',
     keyboard: '⌨️', mouse: '🖱️', printer: '🖨️',
     mobile: '📱', cctv: '📹', router: '📡',
-    sim: '📶', other: '🔧'
+    sim: '📶', barcode_scanner: '📊', other: '🔧'
   };
   return <span className="text-lg">{icons[type] || '📦'}</span>;
 }

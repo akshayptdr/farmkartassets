@@ -36,7 +36,7 @@ function initializeDatabase() {
       asset_id TEXT UNIQUE NOT NULL,
       asset_type TEXT NOT NULL CHECK(asset_type IN (
         'laptop','desktop','keyboard','mouse','printer',
-        'mobile','cctv','cpu','router','sim','other'
+        'mobile','cctv','cpu','router','sim','barcode_scanner','other'
       )),
       brand TEXT NOT NULL,
       model TEXT NOT NULL,

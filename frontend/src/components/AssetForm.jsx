@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import api from '../api';
 
-const ASSET_TYPES = ['laptop', 'desktop', 'cpu', 'keyboard', 'mouse', 'printer', 'mobile', 'cctv', 'router', 'sim', 'other'];
+const ASSET_TYPES = ['laptop', 'desktop', 'cpu', 'keyboard', 'mouse', 'printer', 'mobile', 'cctv', 'router', 'sim', 'barcode_scanner', 'other'];
 const CONDITIONS  = ['new', 'good', 'fair', 'damaged'];
 const STATUSES    = ['available', 'assigned', 'under_repair', 'retired'];
 
